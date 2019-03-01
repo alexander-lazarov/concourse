@@ -9,7 +9,6 @@ module Dashboard.Dashboard exposing
     )
 
 import Callback exposing (Callback(..))
-import Char
 import Concourse
 import Concourse.Cli as Cli
 import Concourse.PipelineStatus as PipelineStatus exposing (PipelineStatus(..))
@@ -107,7 +106,6 @@ init flags =
       , isUserMenuExpanded = topBar.isUserMenuExpanded
       , isPinMenuExpanded = topBar.isPinMenuExpanded
       , middleSection = topBar.middleSection
-      , teams = topBar.teams
       , screenSize = topBar.screenSize
       , highDensity = topBar.highDensity
       , shiftDown = topBar.shiftDown
@@ -210,24 +208,16 @@ handleCallbackWithoutTopBar msg ( model, effects ) =
 
 handleDelivery : Delivery -> ( Model, List Effect ) -> ( Model, List Effect )
 handleDelivery delivery =
-    TopBar.handleDelivery delivery >> handleDeliveryWithoutTopBar delivery
+    TopBar.handleDelivery delivery
+        >> Footer.handleDelivery delivery
+        >> handleDeliveryBody delivery
 
 
-handleDeliveryWithoutTopBar : Delivery -> ( Model, List Effect ) -> ( Model, List Effect )
-handleDeliveryWithoutTopBar delivery ( model, effects ) =
+handleDeliveryBody : Delivery -> ( Model, List Effect ) -> ( Model, List Effect )
+handleDeliveryBody delivery ( model, effects ) =
     case delivery of
-        KeyDown keycode ->
-            handleKeyPressed (Char.fromCode keycode) ( model, effects )
-
-        Moused ->
-            ( Footer.showFooter model, effects )
-
         ClockTicked OneSecond time ->
-            ( let
-                newModel =
-                    Footer.tick model
-              in
-              { newModel | state = RemoteData.map (SubState.tick time) newModel.state }
+            ( { model | state = RemoteData.map (SubState.tick time) model.state }
             , effects
             )
 
@@ -356,6 +346,7 @@ subscriptions model =
     , OnClockTick FiveSeconds
     , OnMouse
     , OnKeyDown
+    , OnKeyUp
     , OnWindowResize
     ]
 
@@ -517,39 +508,6 @@ noResultsView query =
         ]
 
 
-helpView : { a | showHelp : Bool } -> Html Msg
-helpView { showHelp } =
-    Html.div
-        [ classList
-            [ ( "keyboard-help", True )
-            , ( "hidden", not showHelp )
-            ]
-        ]
-        [ Html.div
-            [ class "help-title" ]
-            [ Html.text "keyboard shortcuts" ]
-        , Html.div
-            [ class "help-line" ]
-            [ Html.div
-                [ class "keys" ]
-                [ Html.span
-                    [ class "key" ]
-                    [ Html.text "/" ]
-                ]
-            , Html.text "search"
-            ]
-        , Html.div [ class "help-line" ]
-            [ Html.div
-                [ class "keys" ]
-                [ Html.span
-                    [ class "key" ]
-                    [ Html.text "?" ]
-                ]
-            , Html.text "hide/show help"
-            ]
-        ]
-
-
 turbulenceView : String -> Html Msg
 turbulenceView path =
     Html.div
@@ -606,19 +564,6 @@ pipelinesView { groups, substate, hoveredPipeline, pipelineRunningKeyframes, que
 
     else
         List.map Html.fromUnstyled groupViews
-
-
-handleKeyPressed : Char -> ( Footer.Model r, List Effect ) -> ( Footer.Model r, List Effect )
-handleKeyPressed key ( model, effects ) =
-    case key of
-        '/' ->
-            ( model, effects )
-
-        '?' ->
-            ( Footer.toggleHelp model, effects )
-
-        _ ->
-            ( Footer.showFooter model, effects )
 
 
 remoteUser : APIData.APIData -> Task.Task Http.Error ( APIData.APIData, Maybe Concourse.User )

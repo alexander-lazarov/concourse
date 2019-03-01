@@ -13,6 +13,7 @@ module TopBar.TopBar exposing
 import Array
 import Callback exposing (Callback(..))
 import Concourse
+import Dashboard.Group exposing (Group)
 import Dict
 import Effects exposing (Effect(..))
 import Html.Styled as Html exposing (Html)
@@ -33,7 +34,6 @@ import Html.Styled.Events exposing (..)
 import Http
 import Keycodes
 import QueryString
-import RemoteData exposing (RemoteData)
 import Routes
 import ScreenSize exposing (ScreenSize(..))
 import Subscription exposing (Delivery(..))
@@ -92,7 +92,7 @@ init { route } =
     ( { isUserMenuExpanded = False
       , isPinMenuExpanded = False
       , middleSection = middleSection
-      , teams = RemoteData.Loading
+      , groups = []
       , screenSize = Desktop
       , highDensity = isHd
       , shiftDown = False
@@ -120,32 +120,22 @@ handleCallback callback ( model, effects ) =
                 redirectUrl =
                     Routes.dashboardRoute model.highDensity
             in
-            ( { model
-                | isUserMenuExpanded = False
-                , teams = RemoteData.Loading
-              }
+            ( { model | isUserMenuExpanded = False }
             , effects ++ [ NavigateTo <| Routes.toString redirectUrl ]
             )
+
+        -- TODO: something about this gives me a very bad feeling...
+        -- https://www.youtube.com/watch?v=28OdemxhfbU
+        APIDataFetched (Ok ( _, apiData )) ->
+            if List.isEmpty <| Dashboard.Group.allPipelines apiData then
+                ( { model | middleSection = Empty }, effects )
+
+            else
+                ( model, effects )
 
         LoggedOut (Err err) ->
             flip always (Debug.log "failed to log out" err) <|
                 ( model, effects )
-
-        APIDataFetched (Ok ( time, data )) ->
-            ( { model
-                | teams = RemoteData.Success data.teams
-                , middleSection =
-                    if data.pipelines == [] then
-                        Empty
-
-                    else
-                        model.middleSection
-              }
-            , effects
-            )
-
-        APIDataFetched (Err err) ->
-            ( { model | teams = RemoteData.Failure err, middleSection = Empty }, effects )
 
         ScreenResized size ->
             ( screenResize size model, effects )
@@ -180,7 +170,7 @@ handleDelivery delivery ( model, effects ) =
                                             Nothing ->
                                                 let
                                                     options =
-                                                        dropdownOptions { query = r.query, teams = model.teams }
+                                                        dropdownOptions { query = r.query, groups = model.groups }
 
                                                     lastItem =
                                                         List.length options - 1
@@ -192,7 +182,7 @@ handleDelivery delivery ( model, effects ) =
                                             Just selectedIdx ->
                                                 let
                                                     options =
-                                                        dropdownOptions { query = r.query, teams = model.teams }
+                                                        dropdownOptions { query = r.query, groups = model.groups }
 
                                                     newSelection =
                                                         (selectedIdx - 1) % List.length options
@@ -217,7 +207,7 @@ handleDelivery delivery ( model, effects ) =
                                             Nothing ->
                                                 let
                                                     options =
-                                                        dropdownOptions { query = r.query, teams = model.teams }
+                                                        dropdownOptions { query = r.query, groups = model.groups }
                                                 in
                                                 ( { model | middleSection = SearchBar { r | dropdown = Shown { selectedIdx = Just 0 } } }
                                                 , effects
@@ -226,7 +216,7 @@ handleDelivery delivery ( model, effects ) =
                                             Just selectedIdx ->
                                                 let
                                                     options =
-                                                        dropdownOptions { query = r.query, teams = model.teams }
+                                                        dropdownOptions { query = r.query, groups = model.groups }
 
                                                     newSelection =
                                                         (selectedIdx + 1) % List.length options
@@ -254,7 +244,7 @@ handleDelivery delivery ( model, effects ) =
                                             Just selectedIdx ->
                                                 let
                                                     options =
-                                                        Array.fromList (dropdownOptions { query = r.query, teams = model.teams })
+                                                        Array.fromList (dropdownOptions { query = r.query, groups = model.groups })
 
                                                     selectedItem =
                                                         Maybe.withDefault r.query (Array.get selectedIdx options)
@@ -583,10 +573,9 @@ viewDropdownItems { query, dropdown } model =
                             ]
 
                         "team:" ->
-                            model.teams
-                                |> RemoteData.withDefault []
+                            model.groups
                                 |> List.take 10
-                                |> List.map (\t -> "team: " ++ t.name)
+                                |> List.map (\g -> "team: " ++ g.teamName)
 
                         "" ->
                             [ "status:", "team:" ]
@@ -687,8 +676,8 @@ decodeName name =
     Maybe.withDefault name (Http.decodeUri name)
 
 
-dropdownOptions : { a | query : String, teams : RemoteData.WebData (List Concourse.Team) } -> List String
-dropdownOptions { query, teams } =
+dropdownOptions : { a | query : String, groups : List Group } -> List String
+dropdownOptions { query, groups } =
     case String.trim query of
         "" ->
             [ "status: ", "team: " ]
@@ -697,12 +686,9 @@ dropdownOptions { query, teams } =
             [ "status: paused", "status: pending", "status: failed", "status: errored", "status: aborted", "status: running", "status: succeeded" ]
 
         "team:" ->
-            case teams of
-                RemoteData.Success ts ->
-                    List.map (\team -> "team: " ++ team.name) <| List.take 10 ts
-
-                _ ->
-                    []
+            groups
+                |> List.take 10
+                |> List.map (\group -> "team: " ++ group.teamName)
 
         _ ->
             []

@@ -7,7 +7,7 @@ module TopBar.Model exposing
     )
 
 import Concourse
-import RemoteData
+import Dashboard.Group exposing (Group)
 import Routes
 import ScreenSize exposing (ScreenSize)
 
@@ -17,7 +17,7 @@ type alias Model r =
         | isUserMenuExpanded : Bool
         , isPinMenuExpanded : Bool
         , middleSection : MiddleSection
-        , teams : RemoteData.WebData (List Concourse.Team)
+        , groups : List Group
         , screenSize : ScreenSize
         , highDensity : Bool
         , shiftDown : Bool
