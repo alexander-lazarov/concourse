@@ -16,8 +16,10 @@ type alias Model r =
     { r
         | isUserMenuExpanded : Bool
         , isPinMenuExpanded : Bool
-        , middleSection : MiddleSection
+        , route : Routes.Route
         , groups : List Group
+        , query : String
+        , dropdown : Dropdown
         , screenSize : ScreenSize
         , highDensity : Bool
         , shiftDown : Bool
@@ -31,7 +33,7 @@ type alias Model r =
 type MiddleSection
     = Breadcrumbs Routes.Route
     | MinifiedSearch
-    | SearchBar { query : String, dropdown : Dropdown }
+    | SearchBar
     | Empty
 
 

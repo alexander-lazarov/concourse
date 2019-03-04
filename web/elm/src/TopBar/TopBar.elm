@@ -62,7 +62,7 @@ type alias Flags =
 
 query : Model r -> String
 query model =
-    case model.middleSection of
+    case middleSection model of
         SearchBar { query } ->
             query
 
@@ -72,33 +72,22 @@ query model =
 
 init : Flags -> ( Model {}, List Effect )
 init { route } =
-    let
-        isHd =
-            route == Routes.Dashboard { searchType = Routes.HighDensity }
-
-        middleSection =
-            case route of
-                Routes.Dashboard { searchType } ->
-                    case searchType of
-                        Routes.Normal search ->
-                            SearchBar { query = Maybe.withDefault "" search, dropdown = Hidden }
-
-                        Routes.HighDensity ->
-                            Empty
-
-                _ ->
-                    Breadcrumbs route
-    in
     ( { isUserMenuExpanded = False
       , isPinMenuExpanded = False
-      , middleSection = middleSection
       , groups = []
+      , query = ""
+      , dropdown = Hidden
       , screenSize = Desktop
-      , highDensity = isHd
       , shiftDown = False
+      , route = route
       }
     , [ GetScreenSize ]
     )
+
+
+isHighDensityDashboard : Model r -> Bool
+isHighDensityDashboard { route } =
+    route == Routes.Dashboard { searchType = Routes.HighDensity }
 
 
 queryStringFromSearch : String -> String
@@ -118,20 +107,11 @@ handleCallback callback ( model, effects ) =
         LoggedOut (Ok ()) ->
             let
                 redirectUrl =
-                    Routes.dashboardRoute model.highDensity
+                    Routes.dashboardRoute (isHighDensityDashboard model)
             in
             ( { model | isUserMenuExpanded = False }
             , effects ++ [ NavigateTo <| Routes.toString redirectUrl ]
             )
-
-        -- TODO: something about this gives me a very bad feeling...
-        -- https://www.youtube.com/watch?v=28OdemxhfbU
-        APIDataFetched (Ok ( _, apiData )) ->
-            if List.isEmpty <| Dashboard.Group.allPipelines apiData then
-                ( { model | middleSection = Empty }, effects )
-
-            else
-                ( model, effects )
 
         LoggedOut (Err err) ->
             flip always (Debug.log "failed to log out" err) <|
@@ -142,6 +122,29 @@ handleCallback callback ( model, effects ) =
 
         _ ->
             ( model, effects )
+
+
+arrowUp : List a -> Dropdown -> Dropdown
+arrowUp options dropdown =
+    case dropdown of
+        Shown { selectedIdx } ->
+            case selectedIdx of
+                Nothing ->
+                    let
+                        lastItem =
+                            List.length options - 1
+                    in
+                    Shown { selectedIdx = Just lastItem }
+
+                Just selectedIdx ->
+                    let
+                        newSelection =
+                            (selectedIdx - 1) % List.length options
+                    in
+                    Shown { selectedIdx = Just newSelection }
+
+        Hidden ->
+            Hidden
 
 
 handleDelivery : Delivery -> ( Model r, List Effect ) -> ( Model r, List Effect )
@@ -162,40 +165,21 @@ handleDelivery delivery ( model, effects ) =
                 case keyCode of
                     -- up arrow
                     38 ->
-                        case model.middleSection of
+                        case middleSection model of
                             SearchBar r ->
-                                case r.dropdown of
-                                    Shown { selectedIdx } ->
-                                        case selectedIdx of
-                                            Nothing ->
-                                                let
-                                                    options =
-                                                        dropdownOptions { query = r.query, groups = model.groups }
-
-                                                    lastItem =
-                                                        List.length options - 1
-                                                in
-                                                ( { model | middleSection = SearchBar { r | dropdown = Shown { selectedIdx = Just lastItem } } }
-                                                , effects
-                                                )
-
-                                            Just selectedIdx ->
-                                                let
-                                                    options =
-                                                        dropdownOptions { query = r.query, groups = model.groups }
-
-                                                    newSelection =
-                                                        (selectedIdx - 1) % List.length options
-                                                in
-                                                ( { model | middleSection = SearchBar { r | dropdown = Shown { selectedIdx = Just newSelection } } }
-                                                , effects
-                                                )
-
-                                    _ ->
-                                        ( model, effects )
-
-                            _ ->
-                                ( model, effects )
+                                let
+                                    options =
+                                        dropdownOptions
+                                            { query = r.query
+                                            , groups = model.groups
+                                            }
+                                in
+                                ( { model
+                                    | dropdown =
+                                        arrowUp options model.dropdown
+                                  }
+                                , effects
+                                )
 
                     -- down arrow
                     40 ->
@@ -512,6 +496,21 @@ viewMiddleSection model =
 
         Breadcrumbs r ->
             [ Html.div [ id "breadcrumbs", style Styles.breadcrumbContainer ] (viewBreadcrumbs r) ]
+
+
+middleSection : Model r -> MiddleSection
+middleSection model =
+    case route of
+        Routes.Dashboard { searchType } ->
+            case searchType of
+                Routes.Normal search ->
+                    SearchBar { query = Maybe.withDefault "" search, dropdown = Hidden }
+
+                Routes.HighDensity ->
+                    Empty
+
+        _ ->
+            Breadcrumbs route
 
 
 viewSearch : { query : String, dropdown : Dropdown } -> Model r -> List (Html Msg)
