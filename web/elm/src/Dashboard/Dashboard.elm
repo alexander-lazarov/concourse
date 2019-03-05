@@ -105,9 +105,10 @@ init flags =
       , showHelp = False
       , isUserMenuExpanded = topBar.isUserMenuExpanded
       , isPinMenuExpanded = topBar.isPinMenuExpanded
-      , middleSection = topBar.middleSection
+      , route = topBar.route
+      , query = topBar.query
+      , dropdown = topBar.dropdown
       , screenSize = topBar.screenSize
-      , highDensity = topBar.highDensity
       , shiftDown = topBar.shiftDown
       }
     , [ FetchData
@@ -117,6 +118,16 @@ init flags =
       ]
         ++ topBarEffects
     )
+
+
+isHighDensity : { a | route : Routes.Route } -> Bool
+isHighDensity { route } =
+    case route of
+        Routes.Dashboard { searchType } ->
+            searchType == Routes.HighDensity
+
+        _ ->
+            False
 
 
 handleCallback : Callback -> ( Model, List Effect ) -> ( Model, List Effect )
@@ -164,14 +175,17 @@ handleCallbackWithoutTopBar msg ( model, effects ) =
                         Nothing ->
                             UserState.UserStateLoggedOut
             in
-            if model.highDensity && noPipelines then
+            if isHighDensity model && noPipelines then
                 ( { newModel
-                    | highDensity = False
-                    , groups = groups
+                    | groups = groups
                     , version = apiData.version
                     , userState = userState
                   }
-                , effects ++ [ ModifyUrl <| Routes.toString <| Routes.dashboardRoute False ]
+                , effects
+                    ++ [ ModifyUrl <|
+                            Routes.toString <|
+                                Routes.dashboardRoute False
+                       ]
                 )
 
             else
@@ -186,7 +200,10 @@ handleCallbackWithoutTopBar msg ( model, effects ) =
         LoggedOut (Ok ()) ->
             ( { model | userState = UserState.UserStateLoggedOut }
             , effects
-                ++ [ NavigateTo <| Routes.toString <| Routes.dashboardRoute model.highDensity
+                ++ [ NavigateTo <|
+                        Routes.toString <|
+                            Routes.dashboardRoute <|
+                                isHighDensity model
                    , FetchData
                    ]
             )
@@ -386,12 +403,12 @@ dashboardView model =
                             ++ pipelinesView
                                 { groups = model.groups
                                 , substate = substate
-                                , query = TopBar.query model
+                                , query = model.query
                                 , hoveredPipeline = model.hoveredPipeline
                                 , pipelineRunningKeyframes =
                                     model.pipelineRunningKeyframes
                                 , userState = model.userState
-                                , highDensity = model.highDensity
+                                , highDensity = isHighDensity model
                                 }
                     ]
                         ++ (List.map Html.fromUnstyled <| Footer.view model)
@@ -399,7 +416,7 @@ dashboardView model =
     Html.div
         [ classList
             [ ( .pageBodyClass Group.stickyHeaderConfig, True )
-            , ( "dashboard-hd", model.highDensity )
+            , ( "dashboard-hd", isHighDensity model )
             ]
         ]
         mainContent

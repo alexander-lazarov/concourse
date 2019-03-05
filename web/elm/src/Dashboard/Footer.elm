@@ -23,7 +23,7 @@ type alias Model r =
         , hoveredCliIcon : Maybe Cli.Cli
         , screenSize : ScreenSize.ScreenSize
         , version : String
-        , highDensity : Bool
+        , route : Routes.Route
         , shiftDown : Bool
     }
 
@@ -127,7 +127,7 @@ infoBar :
         | hoveredCliIcon : Maybe Cli.Cli
         , screenSize : ScreenSize.ScreenSize
         , version : String
-        , highDensity : Bool
+        , route : Routes.Route
         , groups : List Group
     }
     -> Html Msg
@@ -149,7 +149,7 @@ legend :
     { a
         | groups : List Group
         , screenSize : ScreenSize.ScreenSize
-        , highDensity : Bool
+        , route : Routes.Route
     }
     -> List (Html Msg)
 legend model =
@@ -179,8 +179,18 @@ legend model =
                     , PipelineStatusSucceeded PipelineStatus.Running
                     ]
                 ++ legendSeparator model.screenSize
-                ++ [ toggleView model.highDensity ]
+                ++ [ toggleView (isHighDensity model) ]
         ]
+
+
+isHighDensity : { a | route : Routes.Route } -> Bool
+isHighDensity { route } =
+    case route of
+        Routes.Dashboard { searchType } ->
+            searchType == Routes.HighDensity
+
+        _ ->
+            False
 
 
 concourseInfo :

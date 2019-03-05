@@ -21,7 +21,6 @@ type alias Model r =
         , query : String
         , dropdown : Dropdown
         , screenSize : ScreenSize
-        , highDensity : Bool
         , shiftDown : Bool
     }
 

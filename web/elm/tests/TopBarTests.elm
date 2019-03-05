@@ -504,7 +504,7 @@ all =
             , it "clears search query when FilterMsg is received with blank" <|
                 TopBar.update (TopBar.Msgs.FilterMsg "")
                     >> Tuple.first
-                    >> TopBar.query
+                    >> .query
                     >> Expect.equal ""
             , it "clear search button has full opacity when there is a query" <|
                 viewNormally
@@ -757,7 +757,7 @@ all =
             [ it "search item is modified" <|
                 TopBar.update (TopBar.Msgs.FilterMsg "test")
                     >> Tuple.first
-                    >> TopBar.query
+                    >> .query
                     >> Expect.equal "test"
             , it "shows the list of statuses when `status:` is typed in the search bar" <|
                 TopBar.update TopBar.Msgs.FocusMsg

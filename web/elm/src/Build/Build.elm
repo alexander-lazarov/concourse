@@ -119,10 +119,11 @@ init flags =
           , hoveredCounter = 0
           , isUserMenuExpanded = topBar.isUserMenuExpanded
           , isPinMenuExpanded = topBar.isPinMenuExpanded
-          , middleSection = topBar.middleSection
+          , route = topBar.route
           , groups = topBar.groups
+          , query = topBar.query
+          , dropdown = topBar.dropdown
           , screenSize = topBar.screenSize
-          , highDensity = topBar.highDensity
           , shiftDown = topBar.shiftDown
           }
         , topBarEffects ++ [ GetCurrentTime ]
